@@ -1,0 +1,90 @@
+services:
+  gateway:
+    build: ./gateway-services
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - AUTH_SERVICE_URL=http://auth:3000
+      - TOUR_SERVICE_URL=http://tour:3000
+      - NOTIFICATION_SERVICE_URL=http://notification:5000
+      - USER_SERVICE_URL=http://user:3000
+    depends_on:
+      - auth
+      - tour
+      - notification
+      - user
+    networks:
+      - backend
+  auth:
+    build: ./auth-services
+    command: node server.js
+    environment:
+      - NODE_ENV=development
+
+    env_file:
+      - ./auth-services/.env
+    ports:
+      - "3001:3000"
+    networks:
+      - backend
+
+  tour:
+    build: ./tour-services
+    ports:
+      - "3002:3000"
+    networks:
+      - backend
+  notification:
+    build: ./notification-services
+    command: node server.js
+    env_file:
+      - ./notification-services/.env
+    ports:
+      - "5001:5000"
+    depends_on:
+      - redis
+    networks:
+      - backend
+  notification-worker:
+    build: ./notification-services
+    command: node workers/emailWorker.js
+    env_file:
+      - ./notification-services/.env
+    networks:
+      - backend
+    environment:
+      - EMAIL_HOST=mailhog
+      - EMAIL_PORT=1025
+
+    depends_on:
+      - mailhog
+      - redis
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025" # Cổng SMTP để service khác kết nối
+      - "8025:8025" # Cổng Web UI để bạn xem email
+    restart: unless-stopped
+    networks:
+      - backend
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+  user:
+    build: ./user-services
+    command: node server.js
+    environment:
+      - NODE_ENV=development
+    env_file:
+      - ./user-services/.env
+    ports:
+      - "3003:3000"
+    networks:
+      - backend
+networks:
+  backend:
+    driver: bridge
