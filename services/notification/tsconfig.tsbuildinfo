@@ -1,0 +1,1 @@
+{"root":["./src/app.ts","./src/server.ts","./src/config/cfmail.ts","./src/config/config.ts","./src/events/eventconsumer.ts","./src/queues/queueemail.ts","./src/services/internalauth.ts","./src/services/redis.ts","./src/services/sendemail.ts","./src/utils/apperror.ts","./src/utils/logger.ts","./src/workers/emailworker.ts"],"version":"5.9.3"}
