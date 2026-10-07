@@ -1,20 +1,35 @@
 import express from 'express';
 const router = express.Router();
-import * as userController from '../controllers/userController';
-import { protect, restrictTo } from '../middlewares/authMiddleware';
+import * as userController from '../controllers/profileController';
+import {
+  protect,
+  restrictTo,
+  allowInternalOrAdmin,
+} from '../middlewares/authMiddleware';
 import internalAuth from '../middlewares/internalAuth';
 
-//auth->user
-router.post('/', internalAuth, userController.createUserProfile);
-router.delete('/:id', internalAuth, userController.deleteProfileMe);
+import {
+  validateUserCreateProfile,
+  validateUserProfileUpdate,
+} from '../middlewares/userValidation';
 
-// UserProfile Routes
-router.use(protect, restrictTo('user'));
-router.get('/me', userController.getMe);
+router.post(
+  '/',
+  internalAuth,
+  validateUserCreateProfile,
+  userController.createProfile,
+);
+router.delete('/:id', internalAuth, userController.deleteUserProfile);
 
-router.patch('/updateMe', userController.updateMe);
+router.get('/me', protect, userController.getProfileMe);
+router.patch(
+  '/updateMe',
+  protect,
+  validateUserProfileUpdate,
+  userController.updateProfile,
+);
 
-// GET Id
-router.get('/:id', userController.getUserId);
+// Admin
+router.get('/:id', allowInternalOrAdmin, userController.getUserProfileId);
 
 export default router;

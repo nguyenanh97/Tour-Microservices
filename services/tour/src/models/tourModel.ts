@@ -1,8 +1,9 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import slugify from 'slugify';
 import sequelize from '../configs/db';
+import { GeoPoint, TourLocation } from './types/geo-point';
 
-// Interface for Tour attributes(thuộc tính)
+// Interface for Tour attributes(định nghĩa cấu trúc thuộc tính)
 
 export interface TourAttributes {
   id: number;
@@ -23,22 +24,25 @@ export interface TourAttributes {
 
   description?: string;
 
-  imageCover: string;
+  imageCover?: string;
   images?: string[];
 
   createdAt?: Date;
+  createdBy?: number; // User ID
+
   deletedAt?: Date | null;
   updatedAt?: Date;
 
   startDates?: Date[];
 
-  startLocation?: object; // GeoJSON
-  locations?: object[];
+  startLocation?: GeoPoint; // GeoJSON
+  locations?: TourLocation[];
 
   isPublished: boolean;
-  createdBy?: number; // User ID
 
   guides?: number[]; // Array of User IDs
+
+  durationWeeks?: number; // Virtual field for duration in weeks
 }
 
 // interface  creation(optional)
@@ -57,9 +61,11 @@ interface TourCreationAttributes extends Optional<
   | 'locations'
   | 'createdBy'
   | 'guides'
+  | 'isPublished'
+  | 'durationWeeks'
 > {}
 
-//  Class Tour extends Model
+//  Class Tour extends Model(định nghĩa thật ,thao tác database)
 class Tour
   extends Model<TourAttributes, TourCreationAttributes>
   implements TourAttributes
@@ -79,9 +85,9 @@ class Tour
   public imageCover!: string;
   public images?: string[];
 
-  public startLocation?: object;
-  public locations?: object[];
-  public guides!: number[];
+  public startLocation?: GeoPoint;
+  public locations?: TourLocation[];
+  public guides?: number[];
 
   public startDates?: Date[];
   public createdBy?: number;
@@ -90,13 +96,9 @@ class Tour
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
   public readonly deletedAt!: Date | null;
-
-  // virtual field
-  get durationWeeks(): number {
-    return this.duration / 7;
-  }
+  public readonly durationWeeks?: number; // Virtual field for duration in weeks
 }
-
+// tạo bảng ,lưu vào cột
 Tour.init(
   {
     id: {
@@ -105,7 +107,7 @@ Tour.init(
       primaryKey: true,
     },
     name: {
-      type: DataTypes.STRING(40),
+      type: DataTypes.STRING(150),
       allowNull: false,
       unique: true,
     },
@@ -140,14 +142,14 @@ Tour.init(
     },
     guides: {
       type: DataTypes.JSON,
-      defaultValue: [],
+      defaultValue: () => [],
     },
 
     priceDiscount: {
       type: DataTypes.FLOAT,
       validate: {
         isLessThanPrice(this: Tour, value: number) {
-          if (value >= this.price) {
+          if (value !== undefined && value !== null && value >= this.price) {
             throw new Error('Discount price should be below regular price');
           }
         },
@@ -167,7 +169,7 @@ Tour.init(
     },
     images: {
       type: DataTypes.JSON,
-      defaultValue: [],
+      defaultValue: () => [],
     },
     startDates: {
       type: DataTypes.JSON,
@@ -179,17 +181,25 @@ Tour.init(
     },
     locations: {
       type: DataTypes.JSON,
-      defaultValue: [],
+      defaultValue: () => [],
     },
 
     isPublished: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    durationWeeks: {
+      type: DataTypes.VIRTUAL,
+      get(this: Tour) {
+        const duration = this.getDataValue('duration');
+        return duration ? duration / 7 : undefined;
+      },
+    },
   },
+
   {
     sequelize,
-    tableName: 'Tour',
+    tableName: 'tours',
     timestamps: true,
     paranoid: true,
     indexes: [
@@ -203,10 +213,12 @@ Tour.init(
 );
 // Hook
 Tour.beforeCreate(tour => {
-  tour.slug = slugify(tour.name, { lower: true });
+  if (tour.name) {
+    tour.slug = slugify(tour.name, { lower: true });
+  }
 });
 Tour.beforeUpdate(tour => {
-  if (tour.changed('name')) {
+  if (tour.changed('name') && tour.name) {
     tour.slug = slugify(tour.name, { lower: true });
   }
 });

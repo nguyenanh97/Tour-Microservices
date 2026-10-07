@@ -2,7 +2,7 @@ import { DataTypes, Model, Optional } from 'sequelize';
 import sequelize from '../configs/db';
 
 // Interface for User attributes
-interface ProfileAttributes {
+export interface ProfileAttributes {
   id: number;
   userId: string;
   email?: string;
@@ -20,7 +20,7 @@ interface ProfileAttributes {
   isLive: boolean;
 }
 // interface  creation(id,optional)
-interface ProfileCreationAttributes extends Optional<
+export interface ProfileCreationAttributes extends Optional<
   ProfileAttributes,
   | 'id'
   | 'email'

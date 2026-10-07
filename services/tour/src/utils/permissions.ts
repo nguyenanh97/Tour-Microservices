@@ -1,5 +1,5 @@
 import AppError from './appError';
-export default function checkPermissions(doc, user) {
+export default function checkPermissions(doc: any, user: { role?: string }) {
   const isAdmin = user.role === 'admin';
 
   if (!isAdmin) {

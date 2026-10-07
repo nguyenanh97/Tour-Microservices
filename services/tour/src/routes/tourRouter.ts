@@ -1,11 +1,11 @@
 import express from 'express';
-import validate from '../../middlewares/validationMiddleware.js';
+import { protect, restrictTo } from '../middlewares/authMiddleware';
 import {
-  protect,
-  restrictTo,
-  checkVerifyEmail,
-} from '../../middlewares/authMiddleware.js';
-const router = express.Router();
+  validateTourCreate,
+  validateTourUpdate,
+  validateDistanceParams,
+} from '../middlewares/tourValidation';
+import internalAuth from '../middlewares/internalAuth';
 import {
   createTour,
   updateTour,
@@ -15,32 +15,56 @@ import {
   getDistancens,
   getMonthlyPlan,
   getTourWithin,
-  getTopcheap,
   getTourStats,
-} from '../controllers/tourController.js';
+  getAllDeletedTour,
+  restoreTour,
+} from '../controllers/tourController';
+import { bookedSeats } from '../controllers/tourScheduleController';
 
-// All middlewares
+import scheduleRouter from './scheduleRouter';
+import { validateBookedSeats } from '../middlewares/scheduleValidation';
 
-router.route('/').get(getAllTours).post(restrictTo('admin'), createTour);
-//router.param('id');
-router.route('/top-5-cheap').get(getTopcheap, getAllTours);
-router.route('/tours-stats').get(getTourStats);
-//
-router.route('/monthly-plan/:year').get(getMonthlyPlan);
+const router = express.Router();
+router.patch(
+  '/schedule/:scheduleId/seats',
+  internalAuth,
+  validateBookedSeats,
+  bookedSeats
+);
 
-//
+// Admin
+router.route('/trash').get(protect, restrictTo('admin'), getAllDeletedTour);
+router.route('/:id/restore').patch(protect, restrictTo('admin'), restoreTour);
+
+//Tours routes
+router
+  .route('/')
+  .get(getAllTours)
+  .post(protect, restrictTo('admin'), validateTourCreate, createTour);
+router.route('/tours-stats').get(protect, getTourStats);
+
+//Get monthly tour plan for a specific year
+router
+  .route('/monthly-plan/:year')
+  .get(protect, restrictTo('admin'), getMonthlyPlan);
+
+// Get tours within a specified distance from a given locati
 router
   .route('/tours-within/:distance/center/:latlng/unit/:unit')
-  .get(validate, getTourWithin);
+  .get(validateDistanceParams, getTourWithin);
 
-router.route('/distances/:distance/:latlng/unit/:unit').get(validate, getDistancens);
+// Distances routing
+router.route('/distances/:latlng/unit/:unit').get(getDistancens);
+router.route('/distances/:distance/:latlng/unit/:unit').get(getDistancens);
 
-//
-//
+//  ID
 router
   .route('/:id')
   .get(getTourID)
-  .patch(restrictTo('admin'), updateTour)
-  .delete(restrictTo('admin'), deleteTour);
+  .patch(protect, restrictTo('admin'), validateTourUpdate, updateTour)
+  .delete(protect, restrictTo('admin'), deleteTour);
+
+// Schedule Router { mergeParams: true }
+router.use('/:tourId/schedules', scheduleRouter);
 
 export default router;

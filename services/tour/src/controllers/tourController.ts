@@ -1,116 +1,193 @@
-import Tour from '../models/tourModel';
+import { Request, Response, NextFunction } from 'express';
+import { TourService } from '../services/tourService';
 import catchAsync from '../utils/catchAsync';
 import AppError from '../utils/appError';
-import { Request, Response, NextFunction } from 'express';
-
+import filterFieldsSoft from '../utils/filterFieldsSoft';
 import {
-  MILES_PER_METER,
-  KM_PER_METER,
-  EARTH_RADIUS_MILES,
-  EARTH_RADIUS_KM,
-} from '../utils/constant.js';
+  toTourResponseDto,
+  FilterTourQueryDto,
+  CreateTourDto,
+  UpdateTourDto,
+} from '../dtos/tour.dto';
 
-// POST (Create New Tour)
+// Create Tour
 export const createTour = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
+    const allowed: (keyof CreateTourDto)[] = [
+      'name',
+      'duration',
+      'maxGroupSize',
+      'difficulty',
+      'price',
+      'priceDiscount',
+      'summary',
+      'description',
+      'imageCover',
+      'images',
+      'startDates',
+      'startLocation',
+      'locations',
+      'isPublished',
+      'guides',
+    ];
+
+    const tourData = filterFieldsSoft(req.body, allowed) as CreateTourDto;
+    if (req.user && req.user.id) {
+      tourData.createdBy = Number(req.user.id);
     }
+    const newTour = await TourService.createTour(tourData);
+    const TourDto = toTourResponseDto(newTour);
+    res.status(201).json({
+      status: 'success',
+      data: TourDto,
+    });
   }
 );
-/// PATCH ID (Update Tour)
-export const updateTour = updateOne(Tour, { adminOnly: true });
-
-// Delete TestTour
-export const deleteTour = deleteOne(Tour);
-
-//GET
-
-export const getAllTours = getAll(Tour);
-export const getTourID = getOne(Tour);
-
-//  :  thực hiện các phép tính tổng hợp nâng cao của chuy vấn đên db
-export const getTourStats = getStats(Tour);
-// GET MONTH
-export const getMonthlyPlan = getMonth(Tour);
-
-//35.03826883498337, 137.1042728287075
-export const getTourWithin = catchAsync(async (req, res, next) => {
-  const { distance: distanceStr, latlng, unit } = req.params;
-  if (!latlng || !unit) {
-    return next(new AppError('Please provide latlng and unit', 400));
-  }
-  // Validate và chuyển đổi distance thành số
-  const distance = parseFloat(distanceStr);
-  if (isNaN(distance)) {
-    return next(new AppError('Distance must be a number', 400));
-  }
-  // Validate và parse tọa độ
-  const [lat, lng] = latlng.split(',').map(coord => parseFloat(coord));
-
-  if (isNaN(lat) || isNaN(lng)) {
-    return next(new AppError('Latitude and longitude must be numbers', 400));
-  }
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-    // Validate phạm vi tọa độ
-    return next(
-      new AppError(
-        'Invalid coordinates. Latitude must be between -90 and 90, longitude between -180 and 180.',
-        400
-      )
-    );
-  }
-
-  // Chuyển đổi khoảng cách sang radians
-  const radius =
-    unit === 'mi' ? distance / EARTH_RADIUS_MILES : distance / EARTH_RADIUS_KM;
-
-  try {
-    const tours = await Tour.find({
-      startLocation: { $geoWithin: { $centerSphere: [[lng, lat], radius] } },
-    });
-
+// Get All Tour
+export const getAllTours = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const queryString = req.query as unknown as FilterTourQueryDto;
+    const tours = await TourService.getAllTours(queryString);
+    const toursDto = tours.map(tour => toTourResponseDto(tour));
     res.status(200).json({
       status: 'success',
-      results: tours.length,
-      data: {
-        data: tours,
-      },
+      results: toursDto.length,
+      data: toursDto,
     });
-  } catch (error) {
-    // Xử lý lỗi cụ thể từ MongoDB Geo queries
-    if (error.code === 2) {
-      return next(new AppError('Invalid coordinates for geospatial query', 400));
-    }
-    throw error; // Ném lại lỗi khác để global error handler xử lý
   }
+);
+
+//Get Tour ID or Slug
+export const getTourID = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    const rawTour = await TourService.getTourByIdOrSlug(id);
+    const tourDto = toTourResponseDto(rawTour);
+    res.status(200).json({
+      status: 'success',
+      data: tourDto,
+    });
+  }
+);
+
+// Update Tour
+export const updateTour = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    const allwowed: (keyof UpdateTourDto)[] = [
+      'name',
+      'duration',
+      'maxGroupSize',
+      'difficulty',
+      'price',
+      'priceDiscount',
+      'summary',
+      'description',
+      'imageCover',
+      'images',
+      'startDates',
+      'startLocation',
+      'locations',
+      'isPublished',
+      'guides',
+    ];
+    const updates = filterFieldsSoft(req.body, allwowed) as UpdateTourDto;
+    const rawTour = await TourService.updateTour(id, updates);
+    const updateTourDto = toTourResponseDto(rawTour);
+    res.status(200).json({
+      status: 'success',
+      data: updateTourDto,
+    });
+  }
+);
+/// Deletet Tour
+export const deleteTour = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  await TourService.deleteTour(id);
+  res.status(204).send();
 });
 
-// handl tours cheap
-export const getTopcheap = (req, res, next) => {
-  req.query.limit = '5';
-  req.query.sort = '-ratingsAverage,price';
-  req.query.fields = 'name,summary,description';
-  next();
-};
-//
-export const getDistancens = catchAsync(async (req, res, next) => {
-  const { latlng, unit } = req.params;
-  // Validate và parse tọa độ
-  const [lat, lng] = latlng.split(',').map(coord => parseFloat(coord));
-  const multiplier = unit === 'mi' ? MILES_PER_METER : KM_PER_METER;
-  const distances = await Tour.aggregate([
-    {
-      $geoNear: {
-        near: { type: 'Point', coordinates: [lng, lat] },
-        distanceField: 'distance',
-        distanceMultiplier: multiplier,
-      },
-    },
-    { $project: { distance: 1, name: 1 } },
-  ]);
-
+//Get Tour Stats
+export const getTourStats = catchAsync(async (req: Request, res: Response) => {
+  const stats = await TourService.getTourStats();
   res.status(200).json({
     status: 'success',
-    data: { data: distances },
+    data: stats,
   });
 });
+
+// Get Monthly Plan
+export const getMonthlyPlan = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const year = parseInt(req.params.year, 10);
+    if (isNaN(year)) {
+      return next(new AppError('Please provide a valid year', 400));
+    }
+    const plan = await TourService.getMonthlyPlan(year);
+    res.status(200).json({
+      status: 'success',
+      data: plan,
+    });
+  }
+);
+
+//Get Tour Within Distance
+export const getTourWithin = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { distance: distanceStr, latlng, unit } = req.params;
+    const distance = parseFloat(distanceStr);
+    const [lat, lng] = latlng.split(',').map(Number);
+    if (isNaN(distance) || isNaN(lat) || isNaN(lng)) {
+      return next(new AppError('Invalid coordinates or distance value', 400));
+    }
+    const tourWithin = await TourService.getToursWithin(
+      distance,
+      lat,
+      lng,
+      unit as 'mi' | 'km'
+    );
+    res.status(200).json({
+      status: 'success',
+      results: tourWithin.length,
+      data: tourWithin,
+    });
+  }
+);
+// Get Distances From Location
+export const getDistancens = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { latlng, unit } = req.params;
+    const [lat, lng] = latlng.split(',').map(Number);
+    if (isNaN(lat) || isNaN(lng)) {
+      return next(new AppError('Invalid coordinates format. Use lat,lng', 400));
+    }
+    const distances = await TourService.getDistances(lat, lng, unit as 'mi' | 'km');
+    res.status(200).json({
+      status: 'success',
+      data: distances,
+    });
+  }
+);
+// Get All Deleted
+export const getAllDeletedTour = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const queryString = req.query as unknown as FilterTourQueryDto;
+    const deletedTours = await TourService.getDeletedTourAll(queryString);
+    const deletedDto = deletedTours.map(tour => {
+      return toTourResponseDto(tour);
+    });
+    res.status(200).json({
+      status: 'success',
+      results: deletedDto.length,
+      data: deletedDto,
+    });
+  }
+);
+// Restore Tour
+export const restoreTour = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    await TourService.restoreTour(id);
+    res.status(200).send();
+  }
+);

@@ -1,14 +1,28 @@
-FROM node:18
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package*.json package-lock.json ./
 
-RUN npm install
+RUN npm ci
 
 COPY . .
 
-EXPOSE 3000
+RUN npm run build
+
+# RUNNER SATGE
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
 ENV PORT=3000
 
-CMD ["node", "server.js"]
+# Copy Runtime files
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app.package.json ./
+
+
+ EXPOSE 3000
+CMD ["node", "dist/server.js"]

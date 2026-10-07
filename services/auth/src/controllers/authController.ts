@@ -13,8 +13,8 @@ import {
   notifyReverify,
   notifyPasswordChanged,
   notifyPasswordReset,
-} from '../services/notificationClient';
-import { createUserProfile, deleteUserProfile } from '../services/userClient';
+} from '../clients/notificationClient';
+import { createUserProfile, deleteUserProfile } from '../clients/userClient';
 
 // USER SIGNUP
 export const userSignup = catchAsync(

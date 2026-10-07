@@ -4,7 +4,7 @@
   "description": "Authentication Service",
   "main": "dist/server.js",
   "scripts": {
-    "build": "tsc -b . && tsc-alias && cp -R src/migrations/* dist/migrations/",
+    "build": "tsc -b . && tsc-alias && mkdir -p dist/migrations && cp -R src/migrations/* dist/migrations/",
     "start": "node dist/server.js",
     "dev": "ts-node-dev -r tsconfig-paths/register --respawn --transpile-only src/server.ts"
   },

@@ -27,3 +27,17 @@ export const restrictTo = (...roles: string[]) => {
     next();
   };
 };
+
+export const allowInternalOrAdmin = catchAsync(async (req, res, next) => {
+  const token = req.header('x-internal-token');
+  if (
+    token &&
+    token === process.env.USER_INTERNAL_TOKEN &&
+    process.env.USER_INTERNAL_TOKEN
+  ) {
+    return next();
+  }
+  return protect(req, res, () => {
+    restrictTo('admin')(req, res, next);
+  });
+});

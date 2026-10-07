@@ -10,7 +10,7 @@ dotenv.config({ path: envFile });
 import app from './app';
 import sequelize from './configs/db';
 import logger from './utils/logger';
-
+import './models';
 // Uncaught Exception
 
 process.on('uncaughtException', (err: Error) => {

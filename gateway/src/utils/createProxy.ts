@@ -17,9 +17,6 @@ const createProxy = (target: string, pathRewrite?: Record<string, string>) =>
           `[Gateway] --> ${req.method} ${req.originalUrl} => ${target}${req.url}`,
         );
 
-        // Quan trọng: forward lại body đã bị express.json() đọc
-        fixRequestBody(proxyReq, req);
-
         if (typeof req.headers['x-user-id'] === 'string') {
           proxyReq.setHeader('x-user-id', req.headers['x-user-id']);
         }
@@ -29,6 +26,8 @@ const createProxy = (target: string, pathRewrite?: Record<string, string>) =>
         if (typeof req.headers['x-user-verified'] === 'string') {
           proxyReq.setHeader('x-user-verified', req.headers['x-user-verified']);
         }
+        // Quan trọng: forward lại body đã bị express.json() đọc
+        fixRequestBody(proxyReq, req);
       },
 
       proxyRes(proxyRes, req) {

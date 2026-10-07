@@ -19,11 +19,12 @@ app.use(express.json());
 app.use('/', tourRouter);
 console.log('🚀 Tour router mounted at /');
 
-// Global error handler
+// Global error handler for 404
 app.all('/*', (req: Request, res: Response, next: NextFunction) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
-// Enhanced error handling
+
+// Enhanced error handling middleware
 app.use((err: AppError, req: Request, res: Response, next: NextFunction) => {
   logger.error('Error:', {
     message: err.message,
